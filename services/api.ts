@@ -193,7 +193,7 @@ export const submitSalesCheckin = async (payload: any, staffId: string) => {
     
     // 2. Log staff activity
     try {
-        const activity: Omit<StaffActivity, 'id' | 'timestamp'> = {
+        const activity: Omit<StaffActivity, 'id'| 'timestamp'> = {
             staffId: staffId,
             description: `Realizou Check-in de Vendas para ${payload.companyName} (${payload.boothCode})`,
         };
@@ -264,6 +264,22 @@ export const getOrganizerUserForEvent = async (eventId: string) => {
     const { password, ...user } = camelCaseKeys(data);
     return user;
 }
+
+export const updateUserPhoto = async (userId: string, photoUrl: string): Promise<User> => {
+    const { data, error } = await supabase
+        .from('users')
+        .update({ photo_url: photoUrl })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user photo:', error);
+        throw new Error('Falha ao atualizar a foto do perfil.');
+    }
+
+    return camelCaseKeys(data) as User;
+};
 
 
 // --- Events ---
