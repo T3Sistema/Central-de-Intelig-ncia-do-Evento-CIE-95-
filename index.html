@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="https://aisfizoyfpcisykarrnt.supabase.co/storage/v1/object/public/imagens/LOGO%20TRIAD3%20.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CIE - Triad3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              background: '#0B101B',
+              card: '#171E2C',
+              border: '#2C3547',
+              text: '#FFFFFF',
+              'text-secondary': '#AEB8C4',
+              primary: '#12B5E5',
+              'primary-dark': '#0D94B8',
+              secondary: '#212936',
+              'secondary-hover': '#2C3547',
+            },
+          },
+        },
+      }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.8.2",
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.44.4/+esm"
+  }
+}
+</script>
+<script>
+// Proteção anti-DevTools aprimorada
+(function() {
+  // Função para detectar dispositivos móveis e tablets de forma mais confiável.
+  // O objetivo é desativar as proteções nesses dispositivos para evitar falsos positivos,
+  // como o bloqueio indevido em iPhones ou iPads quando a barra de endereço/navegação
+  // do navegador é exibida ou ocultada.
+  function isMobileOrTablet() {
+    const userAgent = navigator.userAgent;
+
+    // 1. Verificação padrão via User Agent para a maioria dos celulares.
+    if (/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+      return true;
+    }
+
+    // 2. Detecção específica para iPads (com iPadOS 13+) que se identificam como um desktop Mac.
+    // Esses dispositivos reportam `navigator.platform` como 'MacIntel', mas possuem
+    // capacidade de toque (`maxTouchPoints > 1`), o que os diferencia de um Mac real.
+    if (/iPad/i.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Se for um dispositivo móvel ou tablet, o script de proteção é interrompido.
+  if (isMobileOrTablet()) {
+    return;
+  }
+
+  // As proteções abaixo serão executadas APENAS em DESKTOPS.
+
+  // Bloqueio de teclas de atalho comuns para abrir DevTools
+  document.addEventListener('keydown', function(e) {
+    if (
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
+      (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'j') ||
+      (e.ctrlKey && e.key.toLowerCase() === 'u') ||
+      (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c')
+    ) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  // Impede o clique com o botão direito do mouse (menu de contexto)
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+  });
+
+  // Verifica periodicamente se as DevTools foram abertas medindo o tamanho da janela
+  const devToolsCheckInterval = setInterval(function() {
+    if (window.outerHeight - window.innerHeight > 200 || window.outerWidth - window.innerWidth > 200) {
+      // Se a diferença de tamanho for suspeita, bloqueia o acesso
+      document.body.innerHTML = `<div style="background-color: #0B101B; color: #FFFFFF; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: monospace;">
+                                          <h1 style="text-align:center;">Acesso Bloqueado ❌</h1>
+                                        </div>`;
+      // Interrompe a verificação para economizar recursos
+      clearInterval(devToolsCheckInterval);
+    }
+  }, 1000);
+})();
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
