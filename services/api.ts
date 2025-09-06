@@ -177,6 +177,36 @@ export const submitReport = async (reportData: Omit<ReportSubmission, 'id' | 'ti
   }
 };
 
+export const submitSalesCheckin = async (payload: any, staffId: string) => {
+    // 1. Send webhook
+    const webhookUrl = 'https://webhook.triad3.io/webhook/chek-in-vendas-cie';
+    const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        console.error('Webhook response was not ok:', response.statusText);
+        throw new Error('Falha no envio do check-in de vendas.');
+    }
+    
+    // 2. Log staff activity
+    try {
+        const activity: Omit<StaffActivity, 'id' | 'timestamp'> = {
+            staffId: staffId,
+            description: `Realizou Check-in de Vendas para ${payload.companyName} (${payload.boothCode})`,
+        };
+        const { error } = await supabase.from('staff_activities').insert(snakeCaseKeys({ ...activity, timestamp: new Date().toISOString() }));
+        if (error) {
+            // Log error but don't throw, as the primary action (webhook) succeeded.
+            console.error('Failed to log sales check-in activity:', error);
+        }
+    } catch (error) {
+        console.error('Exception while logging sales check-in activity:', error);
+    }
+};
+
 export const getReportsByEvent = async (eventId: string): Promise<ReportSubmission[]> => {
   const { data, error } = await supabase.from('reports').select('*').eq('event_id', eventId);
   if (error) return [];

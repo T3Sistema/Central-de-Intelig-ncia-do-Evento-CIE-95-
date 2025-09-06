@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getReportButtonsForBooth, submitReport, validateCheckin, getButtonConfigs } from '../services/api';
+import { getReportButtonsForBooth, submitReport, validateCheckin, getButtonConfigs, submitSalesCheckin } from '../services/api';
 import { ReportButtonConfig, ReportType } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
@@ -249,12 +249,7 @@ const InformesPage: React.FC = () => {
     };
 
     try {
-      const response = await fetch('https://webhook.triad3.io/webhook/chek-in-vendas-cie', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error('Falha no envio do webhook.');
+      await submitSalesCheckin(payload, checkinInfo.staffId);
       setSalesSubmitStatus('success');
       setTimeout(() => setIsSalesModalOpen(false), 2000);
     } catch (error) {
