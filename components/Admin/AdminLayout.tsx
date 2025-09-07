@@ -53,6 +53,9 @@ const AdminLayout: React.FC = () => {
           <NavLink to={`/admin/event/${eventId}/sales-checkin`} className={navLinkClasses}>
             Check-in de Vendas
           </NavLink>
+          <NavLink to={`/admin/event/${eventId}/notify-call`} className={navLinkClasses}>
+            Abrir Chamado
+          </NavLink>
         </nav>
       </aside>
       <div className="flex-grow">

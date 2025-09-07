@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getReportButtonsForBooth, submitReport, validateCheckin, getButtonConfigs, submitSalesCheckin } from '../services/api';
-import { ReportButtonConfig, ReportType } from '../types';
+import { getReportButtonsForBooth, submitReport, validateCheckin, getButtonConfigs, submitSalesCheckin, getDepartmentsByEvent, getStaffByEvent } from '../services/api';
+import { ReportButtonConfig, ReportType, Department, Staff } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -13,6 +13,8 @@ const InformesPage: React.FC = () => {
   
   const [checkinInfo, setCheckinInfo] = useState<{staffName: string, eventId: string, personalCode: string, departmentId?: string, companyName: string, staffId: string} | null>(null);
   const [allButtons, setAllButtons] = useState<ReportButtonConfig[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [allStaff, setAllStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -33,7 +35,8 @@ const InformesPage: React.FC = () => {
   const [switchError, setSwitchError] = useState('');
 
   // State for Sales Check-in
-  const [salesCheckinStaffId, setSalesCheckinStaffId] = useState<string | null>(null);
+  const [salesCheckinStaffIds, setSalesCheckinStaffIds] = useState<string[]>([]);
+  const [notifyCallStaffIds, setNotifyCallStaffIds] = useState<string[]>([]);
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [hadSales, setHadSales] = useState<'Sim' | 'Não' | null>(null);
   const [salesPeriod, setSalesPeriod] = useState<'Manhã' | 'Tarde' | 'Noite' | ''>('');
@@ -42,12 +45,21 @@ const InformesPage: React.FC = () => {
   const [salesSubmitting, setSalesSubmitting] = useState(false);
   const [salesSubmitStatus, setSalesSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+  // State for Notification Call
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [notificationStep, setNotificationStep] = useState<'department' | 'staff' | 'reason'>('department');
+  const [selectedNotificationDeptId, setSelectedNotificationDeptId] = useState<string | null>(null);
+  const [selectedNotificationStaff, setSelectedNotificationStaff] = useState<Staff | null>(null);
+  const [notificationReason, setNotificationReason] = useState('');
+
 
   useEffect(() => {
+    let eventIdForFetch: string | null = null;
     const checkinInfoRaw = sessionStorage.getItem('checkinInfo');
     if (checkinInfoRaw) {
       try {
         const info = JSON.parse(checkinInfoRaw);
+        eventIdForFetch = info.eventId || null;
         setCheckinInfo({
             staffName: info.staffName || '',
             eventId: info.eventId || '',
@@ -66,18 +78,19 @@ const InformesPage: React.FC = () => {
     
     setRespondedButtonIds([]);
 
-    const fetchButtons = async () => {
-      if (!boothCode) return;
+    const fetchButtonsAndEventData = async () => {
+      if (!boothCode || !eventIdForFetch) return;
       try {
         setLoading(true);
-        // Fetch buttons specifically assigned to the company AND all other buttons in the system.
-        // This ensures staff-specific buttons are always available to be filtered.
-        const [companyButtons, allSystemButtons] = await Promise.all([
+        const [companyButtons, allSystemButtons, depts, staff] = await Promise.all([
             getReportButtonsForBooth(boothCode),
-            getButtonConfigs()
+            getButtonConfigs(),
+            getDepartmentsByEvent(eventIdForFetch),
+            getStaffByEvent(eventIdForFetch)
         ]);
+        setDepartments(depts);
+        setAllStaff(staff);
 
-        // Merge the two lists, removing duplicates.
         const buttonsMap = new Map<string, ReportButtonConfig>();
         companyButtons.forEach(btn => buttonsMap.set(btn.id, btn));
         allSystemButtons.forEach(btn => {
@@ -86,8 +99,11 @@ const InformesPage: React.FC = () => {
             }
         });
 
-        const salesConfig = allSystemButtons.find(b => b.label === '__SALES_CHECKIN_CONFIG__');
-        if (salesConfig) setSalesCheckinStaffId(salesConfig.staffId || null);
+        const salesConfigs = allSystemButtons.filter(b => b.label === '__SALES_CHECKIN_CONFIG__');
+        setSalesCheckinStaffIds(salesConfigs.map(c => c.staffId).filter((id): id is string => !!id));
+
+        const notifyCallConfigs = allSystemButtons.filter(b => b.label === '__NOTIFY_CALL_CONFIG__' && b.type === ReportType.NOTIFY_CALL);
+        setNotifyCallStaffIds(notifyCallConfigs.map(c => c.staffId).filter((id): id is string => !!id));
         
         setAllButtons(Array.from(buttonsMap.values()));
       } catch (err) {
@@ -96,23 +112,17 @@ const InformesPage: React.FC = () => {
         setLoading(false);
       }
     };
-    fetchButtons();
+    fetchButtonsAndEventData();
   }, [boothCode, navigate]);
 
   const visibleButtons = useMemo(() => {
     if (!checkinInfo || !checkinInfo.staffId) return [];
     
-    // A button is visible if:
-    // 1. It has NOT been responded to in this session.
-    // 2. It is assigned directly to the logged-in staff member.
-    // 3. OR, if not assigned to a specific staff member, it follows the department/general logic:
-    //    a. It is visible if it has no department (general for all).
-    //    b. OR it is visible if its department matches the staff's department.
     return allButtons.filter(button => 
         button.label !== '__SALES_CHECKIN_CONFIG__' &&
+        button.label !== '__NOTIFY_CALL_CONFIG__' &&
         !respondedButtonIds.includes(button.id) &&
-        (button.staffId === checkinInfo.staffId || 
-        (!button.staffId && (!button.departmentId || button.departmentId === checkinInfo.departmentId)))
+        (button.staffId === checkinInfo.staffId || (!button.staffId && (!button.departmentId || button.departmentId === checkinInfo.departmentId)))
     );
   }, [allButtons, checkinInfo, respondedButtonIds]);
 
@@ -137,8 +147,6 @@ const InformesPage: React.FC = () => {
         }
     };
 
-    // This condition ensures the webhook fires only once when all visible buttons are cleared.
-    // It checks if loading is done, there were buttons to begin with, at least one has been responded to, and now none are left.
     if (!loading && allButtons.length > 0 && respondedButtonIds.length > 0 && visibleButtons.length === 0) {
         sendCompletionWebhook();
     }
@@ -147,18 +155,34 @@ const InformesPage: React.FC = () => {
 
   const handleButtonClick = (button: ReportButtonConfig) => {
     setSelectedButton(button);
+    setSubmissionSuccess(null);
     setPrimaryResponse('');
     setFollowUpResponse('');
     setChecklistSelection([]);
-    setSubmissionSuccess(null);
     setIsReportModalOpen(true);
+  };
+
+  const openNotifyCallModal = () => {
+    const notifyButtonConfig: ReportButtonConfig = {
+        id: '__NOTIFY_CALL_CONFIG__',
+        label: 'Abrir Chamado',
+        question: '',
+        type: ReportType.NOTIFY_CALL,
+    };
+    setSelectedButton(notifyButtonConfig);
+    setSubmissionSuccess(null);
+    setNotificationStep('department');
+    setSelectedNotificationDeptId(null);
+    setSelectedNotificationStaff(null);
+    setNotificationReason('');
+    setIsNotificationModalOpen(true);
   };
 
   const handleModalClose = useCallback(() => {
     setIsReportModalOpen(false);
+    setIsNotificationModalOpen(false);
     setSelectedButton(null);
-// FIX: Add missing dependencies to useCallback
-  }, [setIsReportModalOpen, setSelectedButton]);
+  }, []);
   
   const handleExit = () => {
     sessionStorage.removeItem('checkinInfo');
@@ -300,6 +324,56 @@ const InformesPage: React.FC = () => {
     }
   };
 
+  const handleSubmitNotificationCall = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedButton || !boothCode || !checkinInfo || !selectedNotificationStaff) return;
+
+    setSubmitting(true);
+    setSubmissionSuccess(null);
+
+    try {
+        const webhookPayload = {
+            staffName: checkinInfo.staffName,
+            companyName: checkinInfo.companyName,
+            targetStaffPhone: selectedNotificationStaff.phone,
+            targetStaffName: selectedNotificationStaff.name,
+            reason: notificationReason,
+        };
+        const webhookResponse = await fetch('https://webhook.triad3.io/webhook/notificar-chamado-cie', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+        });
+        if (!webhookResponse.ok) {
+            const errorText = await webhookResponse.text();
+            throw new Error(`Falha ao enviar notificação: ${errorText}`);
+        }
+
+        const reportResponse = `Chamado aberto para ${selectedNotificationStaff.name} (Depto: ${departments.find(d => d.id === selectedNotificationStaff.departmentId)?.name || 'N/A'}). Motivo: "${notificationReason}"`;
+        await submitReport({
+            eventId: checkinInfo.eventId,
+            boothCode,
+            staffName: checkinInfo.staffName,
+            reportLabel: selectedButton.label,
+            response: reportResponse,
+        });
+
+        setSubmissionSuccess(true);
+        if (selectedButton.id !== '__NOTIFY_CALL_CONFIG__') {
+          setRespondedButtonIds(prev => [...prev, selectedButton.id]);
+        }
+        setTimeout(() => {
+            handleModalClose();
+        }, 1500);
+
+    } catch (err) {
+        setSubmissionSuccess(false);
+        console.error(err);
+    } finally {
+        setSubmitting(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
   if (error) return <p className="text-red-500 text-center">{error}</p>;
 
@@ -320,12 +394,21 @@ const InformesPage: React.FC = () => {
           </div>
       </div>
 
-      {checkinInfo && salesCheckinStaffId === checkinInfo.staffId && (
-        <div className="my-8 p-4 bg-card rounded-lg shadow-lg text-center">
-            <h3 className="text-xl mb-4 text-center">Check-in Especial</h3>
-            <Button onClick={openSalesCheckinModal} className="w-full sm:w-auto">
-                Check-in de Vendas
-            </Button>
+      {checkinInfo && checkinInfo.staffId && (salesCheckinStaffIds.includes(checkinInfo.staffId) || notifyCallStaffIds.includes(checkinInfo.staffId)) && (
+        <div className="my-8 p-4 bg-card rounded-lg shadow-lg">
+            <h3 className="text-xl mb-4 text-center">Ações Especiais</h3>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+              {salesCheckinStaffIds.includes(checkinInfo.staffId) && (
+                <Button onClick={openSalesCheckinModal} className="w-full sm:w-auto">
+                    Check-in de Vendas
+                </Button>
+              )}
+              {notifyCallStaffIds.includes(checkinInfo.staffId) && (
+                <Button onClick={openNotifyCallModal} className="w-full sm:w-auto">
+                    Abrir Chamado
+                </Button>
+              )}
+            </div>
         </div>
       )}
 
@@ -471,6 +554,75 @@ const InformesPage: React.FC = () => {
           )}
         </Modal>
       )}
+      
+      {/* Notification Call Modal */}
+      <Modal isOpen={isNotificationModalOpen} onClose={handleModalClose} title={selectedButton?.label || 'Notificar Chamado'}>
+          {submissionSuccess === true ? (
+             <div className="text-center p-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="mt-4 text-lg font-semibold">Chamado enviado com sucesso!</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmitNotificationCall}>
+                {notificationStep === 'department' && (
+                    <div>
+                        <h3 className="text-lg font-semibold mb-3">Para qual departamento é o chamado?</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {departments.map(dept => (
+                                <button type="button" key={dept.id} onClick={() => { setSelectedNotificationDeptId(dept.id); setNotificationStep('staff'); }} className="w-full text-left p-3 rounded-md bg-secondary hover:bg-secondary-hover transition-colors">
+                                    {dept.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {notificationStep === 'staff' && (
+                    <div>
+                        <div className="flex items-center mb-3">
+                            <Button type="button" variant="secondary" onClick={() => setNotificationStep('department')} className="mr-4 text-sm px-2 py-1">Voltar</Button>
+                            <h3 className="text-lg font-semibold">Para qual membro da equipe?</h3>
+                        </div>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {allStaff.filter(s => s.departmentId === selectedNotificationDeptId).map(staff => (
+                                <button type="button" key={staff.id} onClick={() => { setSelectedNotificationStaff(staff); setNotificationStep('reason'); }} className="w-full text-left p-3 rounded-md bg-secondary hover:bg-secondary-hover transition-colors flex items-center gap-3">
+                                    <img src={staff.photoUrl} alt={staff.name} className="w-10 h-10 rounded-full object-cover"/>
+                                    <span>{staff.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {notificationStep === 'reason' && (
+                    <div>
+                         <div className="flex items-center mb-3">
+                            <Button type="button" variant="secondary" onClick={() => setNotificationStep('staff')} className="mr-4 text-sm px-2 py-1">Voltar</Button>
+                            <h3 className="text-lg font-semibold">Qual o motivo do chamado?</h3>
+                        </div>
+                        <p className="mb-2 text-text-secondary">Para: <span className="font-bold text-text">{selectedNotificationStaff?.name}</span></p>
+                        <textarea
+                            value={notificationReason}
+                            onChange={(e) => setNotificationReason(e.target.value)}
+                            className="w-full p-2 border border-border rounded-md bg-background"
+                            rows={4}
+                            placeholder="Digite o motivo aqui..."
+                            required
+                        />
+                         {submissionSuccess === false && <p className="text-red-500 mt-2 text-center">Falha ao enviar o chamado.</p>}
+                        <div className="mt-6 flex justify-end gap-4">
+                            <Button type="button" variant="secondary" onClick={handleModalClose}>Cancelar</Button>
+                            <Button type="submit" disabled={submitting}>
+                            {submitting ? <LoadingSpinner /> : 'Enviar Chamado'}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </form>
+          )}
+      </Modal>
 
       {/* Switch Booth Modal */}
       <Modal isOpen={isSwitchModalOpen} onClose={() => setIsSwitchModalOpen(false)} title="Trocar de Estande">

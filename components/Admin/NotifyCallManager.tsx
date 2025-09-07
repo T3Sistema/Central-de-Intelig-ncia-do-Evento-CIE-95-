@@ -8,7 +8,7 @@ interface Props {
   eventId: string;
 }
 
-const CONFIG_BUTTON_LABEL = '__SALES_CHECKIN_CONFIG__';
+const CONFIG_BUTTON_LABEL = '__NOTIFY_CALL_CONFIG__';
 
 const CheckIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -16,7 +16,7 @@ const CheckIcon = () => (
     </svg>
 );
 
-const SalesCheckinManager: React.FC<Props> = ({ eventId }) => {
+const NotifyCallManager: React.FC<Props> = ({ eventId }) => {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,11 +36,11 @@ const SalesCheckinManager: React.FC<Props> = ({ eventId }) => {
       setStaffList(staffData);
       setDepartments(departmentsData);
       
-      const foundConfigs = buttonsData.filter(b => b.label === CONFIG_BUTTON_LABEL);
+      const foundConfigs = buttonsData.filter(b => b.label === CONFIG_BUTTON_LABEL && b.type === ReportType.NOTIFY_CALL);
       setConfigButtons(foundConfigs);
       setSelectedStaffIds(foundConfigs.map(c => c.staffId).filter((id): id is string => !!id));
     } catch (error) {
-      console.error("Failed to fetch sales check-in config:", error);
+      console.error("Failed to fetch notify call config:", error);
     } finally {
       setLoading(false);
     }
@@ -77,8 +77,8 @@ const SalesCheckinManager: React.FC<Props> = ({ eventId }) => {
       const addPromises = toAdd.map(staffId => {
         const newConfig: Omit<ReportButtonConfig, 'id'> = {
           label: CONFIG_BUTTON_LABEL,
-          question: 'Configuração interna para Check-in de Vendas. Não apagar.',
-          type: ReportType.OPEN_TEXT,
+          question: 'Configuração interna para Abrir Chamado. Não apagar.',
+          type: ReportType.NOTIFY_CALL,
           staffId: staffId,
         };
         return addButtonConfig(newConfig);
@@ -101,9 +101,9 @@ const SalesCheckinManager: React.FC<Props> = ({ eventId }) => {
   return (
     <div className="bg-card p-6 rounded-lg shadow-md">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-primary">Check-in de Vendas</h2>
+        <h2 className="text-3xl font-bold text-primary">Abrir Chamado</h2>
         <p className="text-text-secondary mt-2 max-w-2xl mx-auto">
-          Selecione os membros da equipe que terão acesso à funcionalidade de "Check-in de Vendas" em seus painéis.
+          Selecione os membros da equipe que terão acesso à funcionalidade de "Abrir Chamado" em seus painéis.
         </p>
       </div>
 
@@ -148,4 +148,4 @@ const SalesCheckinManager: React.FC<Props> = ({ eventId }) => {
   );
 };
 
-export default SalesCheckinManager;
+export default NotifyCallManager;

@@ -9,6 +9,7 @@ import ButtonsManager from '../../components/Admin/ButtonsManager';
 import NotFoundPage from '../NotFoundPage';
 import DepartmentsManager from '../../components/Admin/DepartmentsManager';
 import SalesCheckinManager from '../../components/Admin/SalesCheckinManager';
+import NotifyCallManager from '../../components/Admin/NotifyCallManager';
 
 const EventDashboardPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
@@ -27,6 +28,7 @@ const EventDashboardPage: React.FC = () => {
         <Route path="departments" element={<DepartmentsManager eventId={eventId} />} />
         <Route path="buttons" element={<ButtonsManager />} />
         <Route path="sales-checkin" element={<SalesCheckinManager eventId={eventId} />} />
+        <Route path="notify-call" element={<NotifyCallManager eventId={eventId} />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

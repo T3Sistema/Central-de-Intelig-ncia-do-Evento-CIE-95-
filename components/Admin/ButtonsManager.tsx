@@ -122,7 +122,6 @@ const ButtonsManager: React.FC = () => {
     setCurrentButton(prev => ({ ...prev, followUp: { ...prev.followUp!, options: newOptions }}));
   };
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const dataToSubmit = { ...currentButton };
@@ -161,6 +160,7 @@ const ButtonsManager: React.FC = () => {
         case ReportType.MULTIPLE_CHOICE: return "Múltipla Escolha";
         case ReportType.YES_NO: return "Sim/Não com Acompanhamento";
         case ReportType.CHECKLIST: return "Checklist";
+        case ReportType.NOTIFY_CALL: return "Notificar Chamados";
         default: return "Desconhecido";
     }
   }

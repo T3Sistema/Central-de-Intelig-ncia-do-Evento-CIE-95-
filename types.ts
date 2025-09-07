@@ -66,6 +66,7 @@ export enum ReportType {
   MULTIPLE_CHOICE = 'multiple_choice',
   YES_NO = 'yes_no',
   CHECKLIST = 'checklist',
+  NOTIFY_CALL = 'notify_call',
 }
 
 export interface ReportOption {
@@ -89,6 +90,7 @@ export interface ReportButtonConfig {
   followUp?: FollowUpConfig;
   departmentId?: string;
   staffId?: string;
+  allowedStaffIds?: string[];
 }
 
 export interface ReportSubmission {
